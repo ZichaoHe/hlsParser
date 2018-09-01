@@ -1,6 +1,6 @@
 package com.myhyx.hlsparser.dao;
 
-import com.myhyx.hlsparser.Define.Tag;
+import com.myhyx.hlsparser.define.Tag;
 import lombok.Data;
 
 /**

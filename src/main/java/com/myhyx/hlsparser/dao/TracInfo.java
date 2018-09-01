@@ -1,9 +1,8 @@
 package com.myhyx.hlsparser.dao;
 
-import com.myhyx.hlsparser.Define.Tag;
+import com.myhyx.hlsparser.define.Tag;
 import lombok.Data;
 
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 

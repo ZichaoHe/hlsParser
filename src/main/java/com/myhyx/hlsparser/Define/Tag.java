@@ -1,4 +1,4 @@
-package com.myhyx.hlsparser.Define;
+package com.myhyx.hlsparser.define;
 
 /**
  * Created by miguc on 2018/9/1.

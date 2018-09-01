@@ -1,6 +1,6 @@
 package com.myhyx.hlsparser.impl;
 
-import com.myhyx.hlsparser.Define.Tag;
+import com.myhyx.hlsparser.define.Tag;
 import com.myhyx.hlsparser.IM3u8Parser;
 import com.myhyx.hlsparser.dao.Head;
 import com.myhyx.hlsparser.dao.PlayList;

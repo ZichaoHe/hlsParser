@@ -1,6 +1,6 @@
 package com.myhyx.hlsparser.impl;
 
-import com.myhyx.hlsparser.Define.Tag;
+import com.myhyx.hlsparser.define.Tag;
 
 /**
  * Created by miguc on 2018/9/1.
