@@ -1,2 +1,2 @@
 # hlsParser
-parser m3u8
+a simple m3u8-file parser
