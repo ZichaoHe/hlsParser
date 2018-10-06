@@ -39,7 +39,11 @@ public class Main {
 
             System.out.println(tsfile.getPats().get(0));
             System.out.println(tsfile.getPmts().get(0));
-            System.out.println(tsfile.getVideoInfos().get(0));
+            System.out.println("vlen="+tsfile.getVideoInfos().size());
+            System.out.println(tsfile.getVideoInfos());
+            System.out.println("alen="+tsfile.getAudioInfos().size());
+            System.out.println(tsfile.getAudioInfos());
+
 //            byte[] bs = new byte[188];
 //
 //            in.skip(188);

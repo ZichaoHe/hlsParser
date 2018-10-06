@@ -14,25 +14,29 @@ import java.util.List;
  */
 public class DefaultTsfileParser implements ITsfileParser {
     private static final Integer PKGSIZE = 188;
-    private Integer pkgNum = 0;
+    private Integer pkgNum = -1;
     private Tsfile tsfile = new Tsfile();
+    private byte[] bs = new byte[PKGSIZE];
+    private byte[] payloadbs = new byte[PKGSIZE];
 
     public Tsfile parser(InputStream input) throws Exception{
 
         while (true){
-
-            byte[] bs = new byte[PKGSIZE];
+            pkgNum++;
             int n = input.read(bs, 0, PKGSIZE);
             if (n < 0){
                 break;
             }
 
             TsPkgHeader head = parserTspkt(bs);
+            if (!head.getPayloadUnitStartIndicator().equals(1)){
+                continue;
+            }
+
             //PAT
             if (head.getPid().equals(0)){
-                byte[] localbs = new byte[PKGSIZE];
-                System.arraycopy(bs, 5+head.getAdaptationFieldLen(), localbs, 0, PKGSIZE-5-head.getAdaptationFieldLen());
-                PATinfo patinfo = parserPATinfo(localbs);
+                System.arraycopy(bs, 5+head.getAdaptationFieldLen(), payloadbs, 0, PKGSIZE-5-head.getAdaptationFieldLen());
+                PATinfo patinfo = parserPATinfo(payloadbs);
                 tsfile.getPats().add(patinfo);
                 continue;
             }
@@ -57,12 +61,9 @@ public class DefaultTsfileParser implements ITsfileParser {
                 continue;
             }
             Integer pmtId = tsfile.getPats().get(0).getPrograms().get(0).getPid();
-//            System.out.println("pmtid="+pmtId);
-//            System.out.println(head.getPid());
             if (head.getPid().equals(pmtId)){
-                byte[] localbs = new byte[PKGSIZE];
-                System.arraycopy(bs, 5+head.getAdaptationFieldLen(), localbs, 0, PKGSIZE-5-head.getAdaptationFieldLen());
-                PMTinfo pmtinfo = parserPMTinfo(localbs);
+                System.arraycopy(bs, 5+head.getAdaptationFieldLen(), payloadbs, 0, PKGSIZE-5-head.getAdaptationFieldLen());
+                PMTinfo pmtinfo = parserPMTinfo(payloadbs);
                 tsfile.getPmts().add(pmtinfo);
                 continue;
             }
@@ -76,32 +77,24 @@ public class DefaultTsfileParser implements ITsfileParser {
                 avIds.add(stream.getPid());
             }
             if (avIds.contains(head.getPid())){
-                byte[] localbs = new byte[PKGSIZE];
-                System.arraycopy(bs, 5+head.getAdaptationFieldLen(), localbs, 0, PKGSIZE-5-head.getAdaptationFieldLen());
 
-                if (!head.getAdaptationFieldControl().equals(1) && !head.getAdaptationFieldControl().equals(3)){
-//                    00 供未来使用，由 ISO/IEC 所保留
-//                    01 无 adaptation_field，仅有效载荷
-//                    10 仅有 Adaptation_field，无有效载荷
-//                    11 Adatationfield 后随有效载荷
-                    continue;
-                }
-                System.out.println("pid="+head.getPid());
-                System.out.println("parse pes, "+ DatatypeConverter.printHexBinary(bs));
-                PESinfo pesinfo = parserPESInfo(localbs);
+                System.arraycopy(bs, 5+head.getAdaptationFieldLen(), payloadbs, 0, PKGSIZE-5-head.getAdaptationFieldLen());
+                PESinfo pesinfo = parserPESInfo(payloadbs);
                 if (pesinfo == null){
                     //TODO
-                    break;
+                    System.out.println("unknow PES, num="+pkgNum);
+                    continue;
                 }
                 if ((pesinfo.getStreamId() & 0x0F0) == 0x0E0){
-                    VideoInfo videoInfo = parserVideoInfo(pesinfo, bs);
+                    System.out.println("v pknum="+pkgNum);
+                    VideoInfo videoInfo = parserVideoInfo(pesinfo, payloadbs);
                     tsfile.getVideoInfos().add(videoInfo);
                 }
                 if ((pesinfo.getStreamId() & 0x0E0) == 0x0C0){
-                    AudioInfo audioInfo = parserAudioInfo(pesinfo, bs);
+                    System.out.println("a pknum="+pkgNum);
+                    AudioInfo audioInfo = parserAudioInfo(pesinfo, payloadbs);
                     tsfile.getAudioInfos().add(audioInfo);
                 }
-
 
             }
 
@@ -208,7 +201,7 @@ public class DefaultTsfileParser implements ITsfileParser {
 
         pes.setPktStartCodePrefix(bs[0]&0xFF<<16 | bs[1]&0xFF<<8 | bs[2]&0xFF);
         pes.setStreamId(bs[3]&0xFF);
-        if ((pes.getStreamId() & 0x0F0) != 0x0E0 || (pes.getStreamId() & 0x0E0) != 0x0C0){
+        if ((pes.getStreamId() & 0x0F0) != 0x0E0 && (pes.getStreamId() & 0x0E0) != 0x0C0){
             // if NOT
             // ISO/IEC 13818-3 或 ISO/IEC 11172-3 或 ISO/IEC 13818-7 或 ISO/IEC 14496-3 音
             // 频流编号
@@ -218,14 +211,14 @@ public class DefaultTsfileParser implements ITsfileParser {
             return null;
         }
         Integer ptsDtsFlags = (bs[7] >> 6) &0x03;
-        if (ptsDtsFlags == 0x02){
+        if (ptsDtsFlags.equals(0x02)){
             Long pts = (((bs[9]>>1)&0x07L)<<30) |
                     ((bs[10]&0xFFL)<<22) |
                     (((bs[11]>>1)&0x7FL)<<15) |
                     ((bs[12]&0xFFL)<<7) |
                     ((bs[13]>>1)&0x7FL);
             pes.setPts(pts);
-        }else if(ptsDtsFlags == 0x03){
+        }else if(ptsDtsFlags.equals(0x03)){
             Long pts = (((bs[9]>>1)&0x07L)<<30) |
                     ((bs[10]&0xFFL)<<22) |
                     (((bs[11]>>1)&0x7FL)<<15) |
@@ -237,8 +230,8 @@ public class DefaultTsfileParser implements ITsfileParser {
                     (((bs[16]>>1)&0x7FL)<<15) |
                     ((bs[17]&0xFFL)<<7) |
                     ((bs[18]>>1)&0x7FL);
-            pes.setPts(dts);
-        }else if (ptsDtsFlags == 0x01){
+            pes.setDts(dts);
+        }else if (ptsDtsFlags.equals(0x01)){
 
         }else {
 
@@ -252,13 +245,15 @@ public class DefaultTsfileParser implements ITsfileParser {
         VideoInfo videoInfo = new VideoInfo();
         videoInfo.setDts(pes.getDts());
         videoInfo.setPts(pes.getPts());
-        return null;
+        videoInfo.setType(pes.getStreamId());
+        return videoInfo;
     }
 
     private AudioInfo parserAudioInfo(PESinfo pes, byte[] bs){
         AudioInfo audioInfo = new AudioInfo();
         audioInfo.setDts(pes.getDts());
         audioInfo.setPts(pes.getPts());
-        return null;
+        audioInfo.setType(pes.getStreamId());
+        return audioInfo;
     }
 }
